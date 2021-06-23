@@ -1,9 +1,59 @@
-set size = {1000, 100};
+set size = {100, 100};
 
-section cueva : RandomWalk {
+smarttile montain{
+	tile tierra{
+		name = "ground_middle";
+		tileset = "Mountain/Tileset";
+		default = true;
+		rule = {
+			{0, 1, 0},
+			{0, 0, 0},
+			{0, 0, 0}
+		}
+
+	}
+	tile pasto{
+		name = "grass";
+		tileset = "Mountain/Tileset";
+		default = false;
+		rule = {
+			{0, 1, 0},
+			{0, 0, 0},
+			{0, 0, 0}
+		}
+	}
+}
+
+section camino1 : RandomWalk {
 	seed = 3.14159265;
+	filler = "montain";
+}
+
+section camino2 : RandomWalkSmoothed {
+	minSectionWidth = 5;
+	seed = 324.34525;
+	filler = "montain";
+}
+
+section cueva1 : MooreCellularAutomata {
+	seed = 234.52345;
+	fillPercent = 35;
+	edgeAreWalls = true;
+	filler = "montain";
+}
+
+section cueva2 : VonNeumannCellularAutomata {
+	seed = 244.5245345;
+	fillPercent = 30;
+	edgeAreWalls = true;
+	filler = "montain";
 }
 
 sasageyo {
-	int a = 5;
+	int i = 0;
+	container sections[16];
+	while(i < 5){
+		join(i,i+1,'r');
+	}
+	join(i,i+1,'r');
 }

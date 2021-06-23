@@ -77,11 +77,11 @@ typedef struct pila{
 
 extern tabla_hash sym_table;
 extern Pila *pila_codigo;
-
 void push(Pila** p, char* code);
 char* pop(Pila** p);
 
 void putsym (char const *name, int sym_type);
 symrec* getsym (char const *name);
 
+void print_template();
 #endif

@@ -49,7 +49,7 @@
 %nterm <int> logical_operator comparation_operator
 %nterm <TileList*> tiles_list
 %nterm <Tile*> tile_content
-%nterm <symrec*> smarttile
+%nterm <symrec*> smarttile join
 %nterm <Section*> section_declaration
 
 %token FUNCTION
@@ -57,7 +57,7 @@
 %token <char*> ALGORITHM 
 %token PLUSPLUS MINUSMINUS
 %token FOR WHILE IF ELSE
-%token <symrec*> RULE
+%token <symrec*> RULE SECTIONS J_SECTIONS
 %token <int> SMARTTILE
 %token SET TILE SECTION
 %token _BEGIN END NEW JOIN CONTAINER
@@ -72,19 +72,39 @@
 %%
 // declaracion inicial main
 input
-	: %empty
-	| set_size initial_declaration main_function 		{
+	: set_size initial_declaration main_function 		{
+		char *code3 = pop(&pila_codigo);
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code3) + strlen(code2) + strlen(code1) + 500));
+		print_template();
+		printf("%s", code1);
+		printf("public void CreateRulesAndTemplates(){%s}", code2);
+		printf("%s}", code3);
 								}
 	;
 set_size
 	: SET '=''{' CONST_INT','CONST_INT'}'';' 		{
+		char code[500];
+		sprintf(code, "public void GenerateAll(){ClearMap();width = %d;height = %d;sections = new List<Section>();	templates = new Dictionary<string, Template>();	CreateRulesAndTemplates();CreateMap();Generate();}", $4 -> value._int, $6 -> value._int);
+		push(&pila_codigo, code);
 								}
 	;
 
 initial_declaration
 	: initial_declaration section			{
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 10));
+		sprintf(code,"%s%s", code1, code2);
+		push(&pila_codigo, code);
 							}
 	| initial_declaration smarttile			{
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 10));
+		sprintf(code,"%s%s", code1, code2);
+		push(&pila_codigo, code);
 							}
 	| smarttile					{
 							} 
@@ -96,6 +116,7 @@ smarttile
 			symrec* aux = getsym($2->name);
 			if(aux != NULL) {
 				printf("No te chifles, mae. La ingenieria no es para los chiflados\n");
+				printf("%s\n", $2 -> name);
 				exit(1);
 			}
 			$$ = (symrec*)malloc(sizeof(symrec)); 
@@ -108,7 +129,7 @@ smarttile
 			char *code = (char*)malloc(sizeof(char)*(strlen(code1) + 100 + 3*strlen($2 -> name)));
 			sprintf(
 				code, 
-				"List<Rule> %s = new List<Rule>(){%s};\nCreateRuleTile(\"%s\",%s);", 
+				"List<Rule> %s = new List<Rule>(){%s};\nRuleTileGenerator.CreateRuleTile(\"%s\",%s);", 
 				$2 -> name, 
 				code1, 
 				$2 -> name,
@@ -166,7 +187,7 @@ tile
 			if($5 != NULL) {
 				sprintf(
 					code,
-					"new Rule{%s matrixOfNeighbors=new int[,] %s",
+					"new Rule{%s matrixOfNeighbors=new int[,] %s}",
 					code1,
 					code2
 					);
@@ -185,7 +206,7 @@ tile
 section
 	: SECTION IDENTIFIER ':' ALGORITHM '{'section_declaration'}'  	{
 			if(getsym($2 -> name) != NULL) {
-				printf("Escuchame pequenio cuck. Mis gustos son God y los tuyos zzzz. Yo soy basado y tu das cringe. Yo soy un chad y tu un virgen, y no puedes hacer nada para cambiarlo\n");
+				printf("Mis gustos son God y los tuyos zzzz\n");
 				exit(1);
 			}
 			putsym($2 -> name, _SECTION_);
@@ -223,7 +244,6 @@ section_declaration
 	;
 tile_content
 	: NAME '=' CONST_STRING ';' TILESET'='CONST_STRING ';' DEFAULT'=' CONST_BOOL';' {
-			printf("tile_content");
 			$$ = (Tile*)malloc(sizeof(Tile));
 			$$ -> name = (char*) malloc(sizeof(char)*strlen($3 -> value._string));
 			strcpy($$ -> name, $3 -> value._string);
@@ -244,17 +264,21 @@ tile_content
 	;
 
 main_function
-	: MAIN '{' code_block '}'  { }
+	: MAIN  code_block  	 	{
+			char *code1 = pop(&pila_codigo);
+			char *code = (char*)malloc(sizeof(char)*(strlen(code1) + 100));
+			sprintf(code, "public void CreateMap(){%s}",code1);
+			push(&pila_codigo, code);
+					}
 	;
-
 code_block
-	: statement ';'             { /*printf("statement");*/ }
-	| statement ';' code_block   { /*printf("statement code_block");*/ }
-	| error                  { yyerrok; }
+	: '{'statement_list'}'              {}
+	| '{''}'			{}
+
+	| error                  	{ yyerrok; }
 	;
 rule
-	: %empty		{ $$ = NULL; }
-	| RULE '=''{'vector','vector','vector'}'	{
+	: RULE '=''{'vector','vector','vector'}'	{
 			$$ = (symrec*)malloc(sizeof(symrec));	
 			$$ -> value.tile = (Tile*)malloc(sizeof(Tile));
 			for(int i = 0; i < 3; i++)
@@ -291,13 +315,71 @@ vector
 			push(&pila_codigo, code);
 							}
 	;
+statement_list 
+	: statement_list statement 		{
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2)+5));
+		sprintf(code, "%s%s", code1, code2);
+		push(&pila_codigo, code);
+						}
+	| statement				{}
 statement
-	: variable_declaration   	{ /*printf("variable\n");*/ }
-	| expression   			{ /*printf("expresion\n");*/}
-	| for          			{ /*printf("for\n");*/ }
-	| while        			{ /*printf("while\n");*/ }
-	| if           			{ /*printf("if\n");*/ }
+	: variable_declaration ';'  {
+			char *code1 = pop(&pila_codigo);
+			char *code = (char*)malloc(sizeof(char)*(strlen(code1) + 10));
+			sprintf(code, "%s", code1);
+			push(&pila_codigo, code);
+					}
+	| for          			{ }
+	| while        			{ }
+	| if		           	{ }
+	| join	    ';'			{ }
+	| expression';'	 		{	
+			char *code1 = pop(&pila_codigo);
+			char *code = (char*)malloc(sizeof(char)*(strlen(code1) + 10));
+			sprintf(code, "%s;", code1);
+			push(&pila_codigo, code);
+					}
 	;
+join 
+	: JOIN'('expression','CONST_CHAR ',' expression')' {
+			if($3 -> type != _INT_ || $7 -> type != _INT_) {
+				printf("Error en acceso a las secciones\n");
+				exit(1);
+			}
+			symrec *aux = getsym("sections");
+			if(aux == NULL) {
+				printf("No has declarado sections!\n");
+				exit(1);
+			}
+			int direccion;
+			switch($5 -> value._char) {
+				case 'l': direccion = 0; break;
+				case 'u': direccion = 1; break;
+				case 'r': direccion = 2; break;
+				case 'd': direccion = 3; break;
+				default:
+					printf("No te chifles\n");
+					exit(1);
+			}
+			$$ -> type = _SECTION_;
+			char *code2 = pop(&pila_codigo);
+			char *code1 = pop(&pila_codigo);
+			char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 100));
+			sprintf(code, 
+				"sections[%s].neighbors[%d]=sections[%s].id;sections[%s].neighbors[%d]=sections[%s].id;",
+				code1,
+				direccion,
+				code2,
+				code2,
+				(direccion+2)%4,
+				code1
+			);
+			push(&pila_codigo, code);
+		}
+	;
+
 variable_declaration
 	: type variable '=' expression             	{
 		if(getsym($2 -> name) != NULL) {
@@ -312,6 +394,13 @@ variable_declaration
 		putsym($2 -> name, $1 -> type);
 		symrec* aux = getsym($2 -> name);
 		assignUnary(aux, $4, '=');
+
+		char *code3 = pop(&pila_codigo);
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1)+strlen(code2)+strlen(code3)) + 10);
+		sprintf(code, "%s %s = %s;", code1, code2, code3);
+		push(&pila_codigo, code);	
 							}
 	| type variable '=' variable                	{ 
 		symrec *aux;
@@ -328,6 +417,13 @@ variable_declaration
 		assignUnary($$, aux, '=');
 		$$ -> type = aux -> type;
 		putsym($2 -> name, aux -> type);
+		
+		char *code3 = pop(&pila_codigo);
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1)+strlen(code2)+strlen(code3)) + 10);
+		sprintf(code, "%s %s = %s;", code1, code2, code3);
+		push(&pila_codigo, code);	
 							}
 	| type variable   		                { 
 		if(getsym($2 -> name) != NULL) {
@@ -336,11 +432,15 @@ variable_declaration
 		}
 		$$ -> type = $1 -> type;
 		putsym($2 -> name, $1 -> type);
-		// printf("tipo idenfificador\n"); 
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 10));
+		sprintf(code, "%s,%s;",code1, code2);
+		push(&pila_codigo, code);	
 							}
-	| CONTAINER IDENTIFIER '['CONST_INT']' 		{
+	| CONTAINER SECTIONS '['CONST_INT']' 		{
 		if(getsym($2 -> name) != NULL) {
-			printf("yabasayorar?\n");
+			printf("Aun no declaras el tamanio de sections\n");
 			exit(1);
 		}
 		char** array = (char**)malloc(sizeof(char*)*$4 -> value._int);
@@ -349,29 +449,17 @@ variable_declaration
 		$2 -> value.array = array;
 		aux -> type = _SECTION_;
 		$$ = aux;
+		char *code = (char*)malloc(sizeof(char)*(500));
+		sprintf(
+			code,
+			"sections = new List<Section> (); for(int iterador = 0; iterador < %d; iterador++) { sections.Add(new Section {width = width, height = height, id = iterador, neighbors = new int[4]{-1,-1,-1,-1}});}",
+			$4 -> value._int
+		);
+		push(&pila_codigo, code);	
 							}
 	;
 variable
-	: IDENTIFIER'['expression']'			{
-		$$ = getsym($1 -> name);
-		if($$ == NULL) {
-			printf("Su pata del mameitor\n");
-			exit(1);
-		}
-		checkTypes(_INT_, $3 -> type);
-		$$ = (symrec*)malloc(sizeof(symrec));
-		strcpy($$ -> name, $1 -> name); 
-		$$ -> value._int = $3 -> value._int;
-
-		char *code2 = pop(&pila_codigo);
-		char *code1 = pop(&pila_codigo);
-		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 4));
-		strcpy(code, code1);
-		strcat(code, "[");
-		strcpy(code, code2);
-		strcat(code, "]");
-							}
-	| IDENTIFIER					{
+	: IDENTIFIER					{
 		strcpy($$ -> name, $1 -> name); 
 		char *code = (char*)malloc(sizeof($1 -> name));
 		strcpy(code, $1 -> name);
@@ -379,16 +467,43 @@ variable
 							}
 	;
 while
-	: WHILE '(' condition ')' '{' code_block '}'   { /*printf("while\n");*/ }
+	: WHILE '(' condition ')' code_block	{
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code2) + strlen(code1) + 50));
+		sprintf(code, "while(%s){%s}", code1, code2);
+		push(&pila_codigo, code);
+							}
 	;
 
 for 
-	: FOR '(' variable_declaration ';' condition ';' expression ')' '{' code_block '}'   { /*printf("for\n");*/ }
+	: FOR '(' variable_declaration ';' condition ';' expression ')' code_block   {
+		char *code4 = pop(&pila_codigo);
+		char *code3 = pop(&pila_codigo);
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1)+strlen(code2)+strlen(code3)+strlen(code4) + 100));
+		sprintf(code, "for(%s %s;%s){%s}", code1, code2, code3, code4);
+		push(&pila_codigo, code);
+							}
 	;
 
 if
-	: IF '(' condition ')' '{' code_block '}'   				{ /*printf("if\n");*/ }
-	| IF '(' condition ')' '{' code_block '}' ELSE '{'code_block'}'  	{ /*printf("if else\n");*/ }
+	: IF '(' condition ')' code_block   				{ 
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1)+strlen(code2) + 50));
+		sprintf(code, "if(%s){%s}", code1, code2);
+		push(&pila_codigo, code);
+										}
+	| IF '(' condition ')' code_block ELSE code_block  	{  
+		char *code3 = pop(&pila_codigo);
+		char *code2 = pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1)+strlen(code2)+strlen(code3) + 50));
+		sprintf(code, "if(%s){%s}else{%s}", code1, code2, code3);
+		push(&pila_codigo, code);
+										}
 	;
 
 expression
@@ -402,15 +517,11 @@ expression
 		checkTypes($1 -> type, $3 -> type);
 		$$ -> type = $1 -> type;
 		assignValue($$, $1, $3, '+');
-		// printf("expresion + expresion\n"); 
 		char *code2 = pop(&pila_codigo);
 		char *code1 = pop(&pila_codigo);
 		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 4));
-		strcpy(code, code1);
-		strcat(code, "+");
-		strcat(code, code2);
+		sprintf(code, "%s+%s", code1, code2);
 		push(&pila_codigo, code);
-
 		
 							}
 	| expression '-' expression      		{ 
@@ -422,12 +533,8 @@ expression
 		char *code2 = pop(&pila_codigo);
 		char *code1 = pop(&pila_codigo);
 		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 4));
-		strcpy(code, code1);
-		strcat(code, "-");
-		strcat(code, code2);
+		sprintf(code, "%s-%s", code1, code2);
 		push(&pila_codigo, code);
-
-          	// printf("expresion - expresion\n"); 
               						}
 	| expression '*' expression      		{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
@@ -438,13 +545,9 @@ expression
 		char *code2 = pop(&pila_codigo);
 		char *code1 = pop(&pila_codigo);
 		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 4));
-		strcpy(code, code1);
-		strcat(code, "*");
-		strcat(code, code2);
+		sprintf(code, "%s*%s", code1, code2);
 		push(&pila_codigo, code);
 
-		free($1);
-		free($3);
               						}
 	| expression '/' expression      		{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
@@ -455,13 +558,9 @@ expression
 		char *code2 = pop(&pila_codigo);
 		char *code1 = pop(&pila_codigo);
 		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 4));
-		strcpy(code, code1);
-		strcat(code, "/");
-		strcat(code, code2);
+		sprintf(code, "%s/%s", code1, code2);
 		push(&pila_codigo, code);
 
-		free($1);
-		free($3);
               						}
 	| '-' expression %prec NEG       		{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
@@ -469,11 +568,9 @@ expression
 		assignUnary($$, $2, '-');
 		char *code1 = pop(&pila_codigo);
 		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + 4));
-		code[0] = '-'; code[1] = '\0';
-		strcat(code, code1);
+		sprintf(code, "-%s", code1);
 		push(&pila_codigo, code);
 
-		free($2);
 							}
 	| '(' expression ')'             		{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
@@ -482,18 +579,14 @@ expression
 
 		char *code1 = pop(&pila_codigo);
 		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + 4));
-		code[0] = '('; code[1] = '\0';
-		strcat(code, code1);
-		strcat(code, ")");
+		sprintf(code, "(%s)", code1);
 		push(&pila_codigo, code);
-
-		free($2);
               						}
 	| variable PLUSPLUS                    		{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
 		symrec* aux = getsym($1 -> name);
 		if(aux == NULL) {
-			printf("Ni vas a acabar la carrera\n");
+			printf("La variable no ha sido declarada\n");
 			exit(1);
 		}
 		$$ -> type = aux -> type;
@@ -502,17 +595,15 @@ expression
 
 		char *code1 = pop(&pila_codigo);
 		char *code = (char*)malloc(sizeof(char)*(strlen(code1)+5));
-		strcpy(code, code1);
-		strcat(code, "++");
+		sprintf(code, "%s++", code1);
 		push(&pila_codigo, code);
 
-		free($1);
               						}
 	| variable MINUSMINUS                    	{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
 		symrec* aux = getsym($1 -> name);
 		if(aux == NULL) {
-			printf("te pido el cambio de carrera o tu lo pides?");
+			printf("La variable no ha sido declarada\n");
 			exit(1);
 		}
 		$$ -> type = aux -> type;
@@ -521,13 +612,12 @@ expression
 
 		char *code1 = pop(&pila_codigo);
 		char *code = (char*)malloc(sizeof(char)*(strlen(code1)+5));
-		strcpy(code, code1);
-		strcat(code, "--");
+		sprintf(code, "%s--", code1);
 		push(&pila_codigo, code);
 
-		free($1);
               						}
 	| variable                     			{ 
+		$$ = (symrec*)malloc(sizeof(symrec));
 		symrec* aux = getsym($1 -> name);
 		if(aux == NULL) {
 			printf("Se esta usando una variable no declarada\n");
@@ -535,39 +625,50 @@ expression
 		}
 		$$ -> type = aux -> type;
 		assignUnary($$, aux, '=');
-		free($1);
 							}
 	| condition                      		{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
 		$$ -> type = _BOOL_;
 		$$ -> value._bool = $1 -> value._bool;
-		int actLen = strlen(pila_codigo -> code);
 
 							}
 	| variable '=' expression      			{ 
 		symrec* aux = getsym($1 -> name);
+		$$ = (symrec*)malloc(sizeof(symrec));
 		if(aux == NULL) {
-			printf("Neta we, ya mejor vete a dormir\n");
+			printf("La variable no ha sido declarada\n");
 			exit(1);
 		}
 		checkTypes(aux -> type, $3 -> type);
 		$$ -> type = $3 -> type;
 		assignUnary(aux, $3, '=');
 		assignUnary($$, aux, '=');
-
 		char *code2 = pop(&pila_codigo);
 		char *code1 = pop(&pila_codigo);
-		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 10));
-		strcpy(code, code1);
-		strcat(code, "=");
-		strcat(code, code2);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 50));
+		sprintf(code, "%s=%s", code1, code2);
 		push(&pila_codigo, code);
-
-		free($3);
-		free($1);
 					      		}
+	| SECTIONS '[' expression ']' '=' variable 	{
+			if($3 -> type != _INT_) {
+				printf("Error en acceso a las secciones\n");
+				exit(1);
+			}
+			symrec* aux = getsym($6 -> name);
+			if(aux == NULL){ 
+				printf("La variable no ha sido declarada\n");
+				exit(1);
+			}
+			checkTypes(_SECTION_, aux -> type);
+			$$ -> type = _SECTION_;
+			char *code2 = pop(&pila_codigo);
+			char *code1 = pop(&pila_codigo);
+			char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + 50));
+			sprintf(code, "sections[%s].Init(templates[\"%s\"])", code1, code2);
+			push(&pila_codigo, code);
+							}
+
 	;
-//| variable JOIN CONST_CHAR variable		{ printf("Join completo"); }
 // 1 <-
 condition
 	: condition logical_operator condition  	    	{ 
@@ -578,13 +679,11 @@ condition
 		char *code2 = pop(&pila_codigo);
 		char *code1 = pop(&pila_codigo);
 		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + strlen(code3) + 10));
-		strcpy(code, code1);
-		strcat(code, code2);
-		strcat(code, code3);
+		sprintf(code,"%s%s%s", code1, code2, code3);
 		push(&pila_codigo, code);
 
               						    	}
-	| expression comparation_operator expression        	{ 
+	| expression  comparation_operator  expression       	{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
 		checkTypes($1 -> type, $3 -> type);
 		$$ -> type = _BOOL_;
@@ -593,18 +692,13 @@ condition
 		char *code2 = pop(&pila_codigo);
 		char *code1 = pop(&pila_codigo);
 		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + strlen(code2) + strlen(code3) + 10));
-		strcpy(code, code1);
-		strcat(code, code2);
-		strcat(code, code3);
+		sprintf(code, "%s%s%s", code1, code2, code3);
 		push(&pila_codigo, code);
-		free($1);
-		free($3);
               							}
 	| CONST_BOOL                              		{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
 		$$ -> type = _BOOL_;
 		$$ -> value._bool = $1 -> value._bool;
-		free($1);
 		char code[10];
 		if($$ -> value._bool) {
 			strcpy(code, "true");
@@ -617,15 +711,14 @@ condition
 	| '!' condition                        			{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
         	if($2 -> type != _BOOL_) {
-        		printf("No coinciden los tipos mi tio\n");
+        		printf("No coinciden los tipos de dato\n");
         		exit(1);
           	}
 		$$ -> type = CONST_BOOL;
 		assignUnary($$, $2, '!');
-		char *code = (char*)malloc(sizeof(char)*(strlen(pila_codigo -> code) + 10));
-		code[0] = '!'; code[1] = '\0';
-		strcat(code, pila_codigo -> code);
-		pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + 10));
+		sprintf(code, "!%s", code1);
 		push(&pila_codigo, code);
 
 		// printf("no condicion\n");
@@ -638,21 +731,17 @@ condition
 		}
 		$$ -> value._bool = !(aux -> value._bool);
 		$$ -> type = _BOOL_;
-		char *code = (char*)malloc(sizeof(char)*(strlen(pila_codigo -> code) + 10));
-		code[0] = '!'; code[1] = '\0';
-		strcat(code, pila_codigo -> code);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + 10));
+		sprintf(code, "!%s", code1);
 		push(&pila_codigo, code);
-		pop(&pila_codigo);
-		free($2);
 								}
 	| '(' condition ')'                     		{ 
 		$$ = (symrec*)malloc(sizeof(symrec));
 		$$ -> type = $2 -> type;
-		char *code = (char*)malloc(sizeof(char)*(strlen(pila_codigo -> code) + 10));
-		code[0] = '('; code[1] = '\0';
-		strcat(code, pila_codigo -> code);
-		strcat(code, ")");
-		pop(&pila_codigo);
+		char *code1 = pop(&pila_codigo);
+		char *code = (char*)malloc(sizeof(char)*(strlen(code1) + 10));
+		sprintf(code, "(%s)", code1);
 		push(&pila_codigo, code);
               							}
 	;
@@ -715,7 +804,7 @@ constant
 		$$ -> value._float = $1 -> value._float; 
 		$$ -> type = _FLOAT_; 
 		char code[25];
-		sprintf(code, "%f", $$ -> value._float);
+		sprintf(code, "%fF", $$ -> value._float);
 		push(&pila_codigo, code);
 		}
 	| CONST_DOUBLE  { 
@@ -723,9 +812,9 @@ constant
 		$$ -> value._double = $1 -> value._double; 
 		$$ -> type = _DOUBLE_; 
 		char code[25];
-		sprintf(code, "%f", $$ -> value._double);
+		sprintf(code, "%fF", $$ -> value._double);
 		push(&pila_codigo, code);
-		printf("const_double\n"); 
+		//printf("const_double\n"); 
 		}
 	| CONST_CHAR    { 
 		$$ = (symrec*)malloc(sizeof(symrec));
@@ -752,13 +841,8 @@ constant
 		strcpy($$ -> value._string, $1 -> value._string);
 		$$ -> type = _STRING_;
 		char* code = (char*)malloc(sizeof(char)*(strlen($1 -> value._string) + 4));
-		code[0] = '\"';
-		code[1] = '\0';
-		code = strcat(code, $1 -> value._string);
-		code = strcat(code, $1 -> value._string);
-		code = strcat(code, "\"");
+		sprintf(code, "\"%s\"", $1 -> value._string);
 		push(&pila_codigo, code);
-		free($1);
 		}
 	;
 
@@ -848,6 +932,7 @@ int get_hash(char const *name) {
 
 void putsym(char const *name, int sym_type) {
 	int hash_val = get_hash(name);
+	// printf("Metiendo: %s, hash_val: %d\n", name, hash_val);
 	symrec *new_one = (symrec *) malloc (sizeof (symrec));
 	strcpy(new_one -> name, name);
 	new_one -> type = sym_type;
@@ -855,6 +940,7 @@ void putsym(char const *name, int sym_type) {
 }
 symrec *getsym(char const *name) {
 	int hash_val = get_hash(name);
+	// printf("Buscando: %s, hash_val: %d\n", name, hash_val);
 	return sym_table.table[hash_val];
 }
 char *pop(Pila **p) {
@@ -867,10 +953,11 @@ char *pop(Pila **p) {
 	strcpy(code, (*p) -> code);
 	(*p) = (*p) -> next;
 	free(aux);
+	// printf("Sacando: %s\n\n", code);
 	return code;
 }
 void push(Pila **p, char* code) {
-	printf("Mete: %s\n", code);
+	// printf("Mete: %s\n", code);
 	Pila *aux = (Pila*)malloc(sizeof(Pila));
 	aux -> next = (*p);
 	aux -> code = (char*)malloc(sizeof(char)*(strlen(code) + 4));
@@ -944,13 +1031,21 @@ void assignUnary(symrec* $$, symrec* $1, int opc) {
 	case _SECTION_:
 		if(opc == '=') {
 			// $$ -> value._int -> al que quieres accesar
+			/*
+			if($$ == NULL) {
+				printf("weino\n");
+				exit(1);
+			}
+			printf("NOMBRE %s: ", name);
 			$$ -> value.array[$$ -> value._int] = (char*)malloc(sizeof(char)*strlen($1 -> name));
 			strcpy($$ -> value.array[$$ -> value._int], $1 -> name);
+			*/
 		}
 		else {
 			printf("RTFM\n");
 			exit(1);
 		}
+		break;
       default:
       	printf("Error unario\n");
         printf("Hay un error!\n");
@@ -1107,9 +1202,9 @@ void put_attribute(Section* a, symrec* attribute, symrec* constant) {
 		checkTypes(_INT_, constant -> type);
 		a -> _ints[10] = constant -> value._int;
 	}
-	else if(strcmp(attribute -> name, "edge") == 0) {
-		checkTypes(_INT_, constant -> type);
-		a -> _ints[11] = constant -> value._int;
+	else if(strcmp(attribute -> name, "edgeAreWalls") == 0) {
+		checkTypes(_BOOL_, constant -> type);
+		a -> _ints[11] = constant -> value._bool;
 	}
 	else if(strcmp(attribute -> name, "maxPathWidth") == 0) {
 		checkTypes(_INT_, constant -> type);
@@ -1123,7 +1218,7 @@ void put_attribute(Section* a, symrec* attribute, symrec* constant) {
 		checkTypes(_DOUBLE_, constant -> type);
 		a -> _floats[1] = constant -> value._int;
 	}
-	else if(strcmp(attribute -> name, "fillerTile") == 0) {
+	else if(strcmp(attribute -> name, "filler") == 0) {
 		checkTypes(_STRING_, constant -> type);
 		symrec *aux = getsym(constant -> value._string);
 		if(aux == NULL) {
@@ -1133,7 +1228,7 @@ void put_attribute(Section* a, symrec* attribute, symrec* constant) {
 		a -> filler = aux -> value.smart_tile;
 	}
 	else {
-		printf("It's called hentai and is art\n");
+		printf("It's called anime and is art\n");
 		exit(1);
 	}
 }
@@ -1148,3 +1243,8 @@ char* resize_string(char *code, int *new_len, int req_len) {
 	}
 	return code;
 }
+void print_template() {
+	printf("using System.Collections.Generic;using UnityEngine;using UnityEditor;using UnityEngine.Tilemaps;public class MapGenerator : MonoBehaviour {  private Dictionary<string, Template> templates {    get;    set;  } private List<Section> sections {    get;    set;  }[Header(\"Reference here your Tilemap\")]public Tilemap tilemap;  public int width {    get;    set;  } public int height {    get;    set;  }  bool[] visited;  public void ClearMap() {    tilemap.ClearAllTiles();  } public void Generate() {     visited = new bool[sections.Count];    List<ConectedComponent> components = new List<ConectedComponent>();    for (int i = 0; i < sections.Count; i++) {      visited[i] = false;    }    for (int i = 0; i < sections.Count; i++) {      if(!visited[i]) {        sections[i].x = 0;        sections[i].y = 0;        ConectedComponent current = new ConectedComponent {origin = new int[2] {0, 0},corner = new int[2] {width - 1, height - 1},elements = new List<int>()};        Dfs(i, current);        components.Add(current);      }    }    int[] origin = new int[] {0, 0};    for (int i = 0; i < components.Count; i++) {      MoveCoords(components[i], origin);      origin[0] = components[i].corner[0];    }    int mapWidth = origin[0] + width;    int mapHeight = origin[1] + height;    for (int k = 0; k < sections.Count; k++) {      TileBase tile = Resources.Load<TileBase>(RuleTileGenerator.RULE_TILES_PATH + sections[k].filler) as TileBase;      if(tile == null) {        Debug.Log(\"Resource tile load failed\");      }      for (int i = 0; i < width; i++) {        for (int j = 0; j < height; j++) {          int x = sections[k].x + i;          int y = sections[k].y + j;          if(sections[k].map[i, j] == 1) {            tilemap.SetTile(new Vector3Int(x, y, 0), tile);          }        }      }    }  } private void MoveCoords(ConectedComponent component, int[] origin) {    int Cx = component.origin[0] - origin[0];    int Cy = component.origin[1] - origin[1];    for (int i = 0; i < component.elements.Count; i++) {      int idx = component.elements[i];      sections[idx].x = sections[idx].x - Cx;      sections[idx].y = sections[idx].y - Cy;    }    component.origin[0] = component.origin[0] - Cx;    component.origin[1] = component.origin[1] - Cy;    component.corner[0] = component.corner[0] - Cx;    component.corner[1] = component.corner[1] - Cy;  }"); 
+	printf("private void Join(ConectedComponent component, Section origin, Section destiny, int direction) {    if (direction == 0) {      destiny.x = origin.x - width;      destiny.y = origin.y;    }    else if (direction == 1) {      destiny.x = origin.x;      destiny.y = origin.y + height;    }    else if (direction == 2) {      destiny.x = origin.x + width;      destiny.y = origin.y;    }    else {      destiny.x = origin.x;      destiny.y = origin.y - height;    }    component.origin[0] = Min(origin.x, destiny.x);    component.origin[1] = Min(origin.y, destiny.y);    component.corner[0] = Max(origin.x, destiny.x) + width;    component.corner[1] = Max(origin.y, destiny.y) + height;  } private void Dfs(int node, ConectedComponent current) {    visited[node] = true;    current.elements.Add(node);    for (int i = 0; i < 4; i++) {      int nextNode = sections[node].neighbors[i];      if (nextNode == -1) {        continue;      }      if (!visited[nextNode]) {        Join(current, sections[node], sections[nextNode], i);        Dfs(nextNode, current);      }    }  } private int Min(int a, int b) {    if(a < b) return a;    return b;  } private int Max(int a, int b) {    if(a > b) return a;    return b;  }"); 
+}
+
