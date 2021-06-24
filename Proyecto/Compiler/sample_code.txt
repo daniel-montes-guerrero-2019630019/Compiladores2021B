@@ -2,58 +2,107 @@ set size = {100, 100};
 
 smarttile montain{
 	tile tierra{
-		name = "ground_middle";
-		tileset = "Mountain/Tileset";
+		name = "Mountain/tierra_nieve";
+		tileset = "";
 		default = true;
 		rule = {
-			{0, 1, 0},
+			{0, 0, 0},
 			{0, 0, 0},
 			{0, 0, 0}
 		}
-
 	}
-	tile pasto{
-		name = "grass";
-		tileset = "Mountain/Tileset";
+	tile nieve{
+		name = "Mountain/nieve";
+		tileset = "";
 		default = false;
 		rule = {
-			{0, 1, 0},
-			{0, 0, 0},
+			{0, -1, 0},
+			{1, 0, 1},
+			{0, 0, 0}
+		}
+	}
+	tile nieve_left{
+		name = "Mountain/nieve_left";
+		tileset = "";
+		default = false;
+		rule = {
+			{0, -1, 0},
+			{-1, 0, 1},
+			{0, 0, 0}
+		}
+	}
+	tile nieve_right{
+		name = "Mountain/nieve_right";
+		tileset = "";
+		default = false;
+		rule = {
+			{0, -1, 0},
+			{1, 0, -1},
 			{0, 0, 0}
 		}
 	}
 }
 
-section camino1 : RandomWalk {
-	seed = 3.14159265;
+section cueva1 : RandomWalkCave{
+	seed = 76.6990956;
+	filler = "montain";
+	requiredFloorPercent = 45;
+}
+
+section cueva2 : RandomWalkCave{
+	seed = 3569.2360956;
+	filler = "montain";
+	requiredFloorPercent = 45;
+}
+
+section camino1 : RandomWalk{
+	seed = 66.368076712;
 	filler = "montain";
 }
 
-section camino2 : RandomWalkSmoothed {
-	minSectionWidth = 5;
-	seed = 324.34525;
+section camino2 : RandomWalk{
+	seed = 76.6990956;
 	filler = "montain";
 }
 
-section cueva1 : MooreCellularAutomata {
-	seed = 234.52345;
-	fillPercent = 35;
-	edgeAreWalls = true;
+section camino3 : RandomWalk{
+	seed = 7653.090956;
 	filler = "montain";
 }
 
-section cueva2 : VonNeumannCellularAutomata {
-	seed = 244.5245345;
-	fillPercent = 30;
-	edgeAreWalls = true;
+section camino4 : RandomWalk{
+	seed = 67.9756352241;
+	filler = "montain";
+}
+
+section completo : MooreCellularAutomata{
+	fillPercent = 100;
 	filler = "montain";
 }
 
 sasageyo {
-	int i = 0;
-	container sections[16];
-	while(i < 5){
-		join(i,i+1,'r');
+	container sections[12];
+	sections[1] = camino1;
+	sections[2] = completo;
+	sections[3] = camino2;
+	sections[4] = completo;
+	sections[5] = cueva1;
+	sections[6] = cueva2;
+	sections[7] = camino3;
+	sections[8] = completo;
+	sections[10] = camino4;
+	sections[11] = completo;
+
+	for(int i = 0; i < 2; i++){
+		if(i == 0){
+			join(3+i, 'd', 4+i);
+			join(7+i, 'd', 8+i);
+		}
+		join(i, 'd', i + 1);
+		join(9+i, 'd', i + 10);
+		int j = i + 1;
+		join(2*j, 'r', 2*j + 2);
+		join(3*j + 2, 'r', 3*j + 5);
 	}
-	join(i,i+1,'r');
+	join(5, 'l', 6);
 }

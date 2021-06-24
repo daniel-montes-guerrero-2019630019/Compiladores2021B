@@ -91,9 +91,9 @@ public class Algorithms : MonoBehaviour
                 //Determine the current height
                 float currHeight = lastPos.y;
                 //Work our way through from the last x to the current x
-                for (int x = lastPos.x; x < currentPos.x; x++)
+                for (int x = lastPos.x; x <= currentPos.x; x++)
                 {
-                    for (int y = Mathf.FloorToInt(currHeight); y > 0; y--)
+                    for (int y = Mathf.FloorToInt(currHeight); y >= 0; y--)
                     {
                         map[x, y] = 1;
                     }
